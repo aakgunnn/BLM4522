@@ -1,0 +1,2 @@
+[2026-04-07 12:47:05] [SUCCESS] DB: yedek_demo_db | ZAMAN: 1.11 sn | BOYUT: 0.06 MB | DOSYA: backup_20260407_124704.backup
+[2026-04-07 12:47:21] [SUCCESS] DB: yedek_demo_db | ZAMAN: 1.04 sn | BOYUT: 0.06 MB | DOSYA: backup_20260407_124720.backup

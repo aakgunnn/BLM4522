@@ -1,0 +1,188 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[turkish]{babel}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{enumitem}
+\geometry{a4paper, margin=1in}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false, breaklines=true, captionpos=b,
+    keepspaces=true, numbers=left, numbersep=5pt,
+    showspaces=false, showstringspaces=false, showtabs=false, tabsize=2
+}
+\lstset{style=mystyle}
+
+\begin{document}
+\shorthandoff{=}
+
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    {\Large\textbf{ANKARA UNIVERSITESI}}\\[0.3cm]
+    {\large Muhendislik Fakultesi}\\[0.3cm]
+    {\large Bilgisayar Muhendisligi Bolumu}\\[1cm]
+    \begin{figure}[h]
+    \centering
+    \vspace{3pt}
+    \includegraphics[width=5.0cm]{logo.png}
+    \end{figure}
+    \begin{tabular}{ll}
+        \textbf{Ogrenci:} & Ahmet Akgun \\
+        \textbf{Ogrenci No:} & 22290602 \\
+        \textbf{Danisman:} & Enver Bagci \\
+    \end{tabular}\\[1.5cm]
+    {\Large \textbf{BLM4522 Ag Tabanli Paralel Dagitim Sistemleri}}\\[0.5cm]
+    {\large \textbf{Proje Adi:} Veritabani Performans Optimizasyonu ve Izleme}
+    \vfill
+    \begin{itemize}[label=\textbullet]
+        \item \textbf{GitHub Depo Linki:} \url{https://github.com/aakgunnn}
+        \item \textbf{Haftalik Video Takip Baglantisi:} \url{https://www.youtube.com/@ahmetakgun359}
+    \end{itemize}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Giris}
+Bu projede, 1.6 milyon satirlik buyuk bir veritabani uzerinde performans analizi yapilmis ve optimizasyon teknikleri uygulanmistir. Proje bes asamadan olusmaktadir:
+\begin{enumerate}
+    \item Buyuk veritabani ortaminin hazirlanmasi (100K musteri, 500K siparis, 1M detay)
+    \item Veritabani izleme (DMV karsiligi sistem gorunum sorgulamalari)
+    \item Indeks yonetimi (olusturma, oncesi/sonrasi karsilastirma, gereksiz indeks tespiti)
+    \item Sorgu iyilestirme (yavas sorgulari analiz etme ve optimize etme)
+    \item Veri yoneticisi rolleri ve erisim yonetimi
+\end{enumerate}
+
+\section{Asama 1: Buyuk Veri Ortaminin Hazirlanmasi}
+PostgreSQL'in \texttt{generate\_series} fonksiyonu kullanilarak toplu veri uretilmistir:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|r|r|}
+\hline
+\textbf{Tablo} & \textbf{Kayit Sayisi} & \textbf{Boyut} \\
+\hline
+customers & 100.000 & 12 MB \\
+products & 1.000 & 128 KB \\
+orders & 500.000 & 39 MB \\
+order\_items & 1.000.000 & 71 MB \\
+\hline
+\textbf{Toplam} & \textbf{1.601.000} & \textbf{131 MB} \\
+\hline
+\end{tabular}
+\caption{Veritabani Tablo Istatistikleri}
+\end{table}
+
+\section{Asama 2: Veritabani Izleme (Monitoring)}
+SQL Server'daki \textbf{DMV (Dynamic Management Views)} ve \textbf{SQL Profiler} araclarinin PostgreSQL karsiliklari kullanilmistir.
+
+\subsection{Tablo Istatistikleri (pg\_stat\_user\_tables)}
+\begin{lstlisting}[language=SQL, caption=DMV Karsiligi Tablo Izleme]
+SELECT relname AS tablo_adi, n_live_tup AS canli_satir,
+       n_dead_tup AS olu_satir, seq_scan AS sirasal_tarama,
+       idx_scan AS indeks_tarama
+FROM pg_stat_user_tables ORDER BY n_live_tup DESC;
+\end{lstlisting}
+
+\subsection{Aktif Oturumlar (pg\_stat\_activity)}
+\begin{lstlisting}[language=SQL, caption=SQL Profiler Karsiligi]
+SELECT pid, usename, state, LEFT(query, 80) AS sorgu,
+       NOW() - query_start AS gecen_sure
+FROM pg_stat_activity WHERE datname = 'perf_demo_db';
+\end{lstlisting}
+
+\subsection{Disk Alani Yonetimi}
+\begin{lstlisting}[language=SQL, caption=Tablo ve Indeks Boyutlari]
+SELECT tablename AS tablo,
+  pg_size_pretty(pg_total_relation_size(tablename::regclass)) AS toplam,
+  pg_size_pretty(pg_relation_size(tablename::regclass)) AS veri
+FROM pg_tables WHERE schemaname = 'public';
+\end{lstlisting}
+
+\section{Asama 3: Indeks Yonetimi}
+Indeks olusturmadan once ve sonra ayni sorgular \texttt{EXPLAIN ANALYZE} ile calistirilarak performans farklari olculmustur.
+
+\subsection{Indeks Oncesi vs Sonrasi Karsilastirma}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|r|r|r|}
+\hline
+\textbf{Test Senaryosu} & \textbf{Oncesi (ms)} & \textbf{Sonrasi (ms)} & \textbf{Iyilesme} \\
+\hline
+Sehre gore musteri arama & 15.5 & 6.1 & \%61 \\
+Tarih araliginda siparis & 59.8 & 12.2 & \%80 \\
+Kategori + fiyat filtresi & 0.30 & 0.18 & \%40 \\
+Buyuk JOIN sorgusu & 2.86 & 0.25 & \%91 \\
+\hline
+\end{tabular}
+\caption{Indeks Oncesi/Sonrasi Performans Karsilastirmasi}
+\end{table}
+
+\subsection{Olusturulan Indeksler}
+\begin{lstlisting}[language=SQL, caption=Bilesik Indeks Ornekleri]
+CREATE INDEX idx_customers_city_active ON customers(city, is_active);
+CREATE INDEX idx_orders_date_status ON orders(order_date, status);
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+CREATE INDEX idx_products_category_price ON products(category, price);
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+\end{lstlisting}
+
+\subsection{Gereksiz Indeks Tespiti}
+\texttt{pg\_stat\_user\_indexes} gorunumu kullanilarak hic kullanilmayan indeksler tespit edilmistir:
+\begin{lstlisting}[language=SQL, caption=Kullanilmayan Indeks Tespiti]
+SELECT indexrelname, idx_scan AS kullanim,
+  pg_size_pretty(pg_relation_size(indexrelid)) AS boyut,
+  CASE WHEN idx_scan = 0 THEN 'KULLANILMIYOR' END AS durum
+FROM pg_stat_user_indexes ORDER BY idx_scan ASC;
+\end{lstlisting}
+
+\section{Asama 4: Sorgu Iyilestirme}
+Uzun suren sorgular analiz edilerek optimize edilmistir.
+
+\subsection{Alt Sorgu vs JOIN + GROUP BY}
+N+1 alt sorgu problemi, tek bir \texttt{LEFT JOIN + GROUP BY} ifadesine donusturulerek cozulmustur.
+
+\subsection{SELECT * vs Sadece Gerekli Sutunlar}
+\texttt{SELECT *} yerine sadece ihtiyac duyulan sutunlarin secilmesiyle veri transferi azaltilmis ve sorgu suresi \textbf{3.78 ms'den 0.89 ms'ye} dusurulmustur.
+
+\subsection{Fonksiyon Kullanimi ve Index Bypass}
+\texttt{WHERE UPPER(city) = 'ANKARA'} seklindeki fonksiyon kullaniminin indeksi devre disi biraktigi gosterilmistir. Dogrudan \texttt{WHERE city = 'Ankara'} kullanimi ile sorgu suresi \textbf{49.8 ms'den 4.8 ms'ye} dusurulmustur (\%90 iyilesme).
+
+\section{Asama 5: Veri Yoneticisi Rolleri}
+Farkli yetki seviyelerine sahip uc rol tanimlanmistir:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Rol} & \textbf{Kullanici} & \textbf{Yetkiler} \\
+\hline
+perf\_monitor & monitor\_user & Sadece okuma + sistem gorunum erisimi \\
+data\_analyst & analyst\_user & Okuma + sinirli yazma (tablo olusturma) \\
+dba\_admin & admin\_user & Tam yetki \\
+\hline
+\end{tabular}
+\caption{Rol ve Yetki Matrisi}
+\end{table}
+
+\section{Sonuc}
+Bu projede, 1.6 milyon satirlik buyuk bir veritabani uzerinde kapsamli performans analizi ve optimizasyon calismalari gerceklestirilmistir. Indeks olusturma ile sorgu surelerinde \%40 ile \%91 arasinda iyilesme saglanmis, yavas sorgular optimize edilmis, sistem izleme mekanizmalari kurulmus ve rol bazli erisim yonetimi uygulanmistir.
+
+\end{document}

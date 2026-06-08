@@ -1,0 +1,199 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[turkish]{babel}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{enumitem}
+\geometry{a4paper, margin=1in}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false, breaklines=true, captionpos=b,
+    keepspaces=true, numbers=left, numbersep=5pt,
+    showspaces=false, showstringspaces=false, showtabs=false, tabsize=2
+}
+\lstset{style=mystyle}
+
+\begin{document}
+\shorthandoff{=}
+
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    {\Large\textbf{ANKARA UNIVERSITESI}}\\[0.3cm]
+    {\large Muhendislik Fakultesi}\\[0.3cm]
+    {\large Bilgisayar Muhendisligi Bolumu}\\[1cm]
+    \begin{figure}[h]
+    \centering
+    \vspace{3pt}
+    \includegraphics[width=5.0cm]{logo.png}
+    \end{figure}
+    \begin{tabular}{ll}
+        \textbf{Ogrenci:} & Ahmet Akgun \\
+        \textbf{Ogrenci No:} & 22290602 \\
+        \textbf{Danisman:} & Enver Bagci \\
+    \end{tabular}\\[1.5cm]
+    {\Large \textbf{BLM4522 Ag Tabanli Paralel Dagitim Sistemleri}}\\[0.5cm]
+    {\large \textbf{Proje Adi:} Veritabani Yedekleme ve Felaketten Kurtarma Plani}
+    \vfill
+    \begin{itemize}[label=\textbullet]
+        \item \textbf{GitHub Depo Linki:} \url{https://github.com/aakgunnn}
+        \item \textbf{Haftalik Video Takip Baglantisi:} \url{https://www.youtube.com/@ahmetakgun359}
+    \end{itemize}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Giris}
+Bu projede, bir veritabaninin yedekleme ve felaketten kurtarma (Disaster Recovery) plani tasarlanmis ve uygulanmistir. SQL Server ortamindaki yedekleme stratejileri PostgreSQL mimarisine uyarlanarak dort asamada gerceklestirilmistir:
+
+\begin{enumerate}
+    \item Test veritabani ortaminin hazirlanmasi
+    \item Tam, sema, tablo bazli ve sadece veri yedeklemesi stratejileri
+    \item Felaket senaryolari (DELETE ve DROP simulasyonu)
+    \item Yedekten kurtarma ve dogrulama testleri
+\end{enumerate}
+
+\section{Asama 1: Test Ortaminin Hazirlanmasi}
+\texttt{dr\_demo\_db} adinda bir veritabani olusturulmus ve \texttt{company} semasi altinda uc tablo ile doldurulmustur:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|r|l|}
+\hline
+\textbf{Tablo} & \textbf{Kayit} & \textbf{Aciklama} \\
+\hline
+company.employees & 10.000 & Calisan bilgileri \\
+company.projects & 500 & Proje bilgileri \\
+company.customers & 5.000 & Musteri bilgileri (kritik veri) \\
+\hline
+\end{tabular}
+\caption{Test Veritabani Tablolari}
+\end{table}
+
+\section{Asama 2: Yedekleme Stratejileri}
+PostgreSQL'in \texttt{pg\_dump} araci kullanilarak dort farkli yedekleme tipi uygulanmistir.
+
+\subsection{Tam Yedekleme (Full Backup)}
+Tum veritabaninin yapisal ve verisel olarak eksiksiz yedegi:
+\begin{lstlisting}[language=bash, caption=Tam Yedekleme Komutu]
+pg_dump -U postgres -d dr_demo_db -F c -f full_backup.backup
+\end{lstlisting}
+\texttt{-F c} parametresi ile sikistirilmis (Custom) format kullanilarak disk alani optimize edilmistir. Sonuc: \textbf{207 KB} boyutunda eksiksiz yedek.
+
+\subsection{Sema Yedekleme (Schema-Only / Diferansiyel Temel)}
+Sadece tablo yapilari, indeksler ve kisitlarin yedegi:
+\begin{lstlisting}[language=bash, caption=Sema Yedekleme]
+pg_dump -U postgres -d dr_demo_db --schema-only -f schema_only.sql
+\end{lstlisting}
+Sonuc: \textbf{4.48 KB}. Fark (Differential) yedeklemenin temeli olarak kullanilir.
+
+\subsection{Tablo Bazli Yedekleme (Artik / Incremental)}
+Sadece belirli tablolarin bagimsiz yedegi:
+\begin{lstlisting}[language=bash, caption=Tablo Bazli Yedekleme]
+pg_dump -U postgres -d dr_demo_db -t company.employees -F c -f table_employees.backup
+pg_dump -U postgres -d dr_demo_db -t company.customers -F c -f table_customers.backup
+\end{lstlisting}
+Bu strateji sayesinde felaket aninda tum veritabanini geri yuklemek yerine sadece hasar goren tablo kurtarilabilir.
+
+\subsection{Sadece Veri Yedegi (Data-Only)}
+Yapi haric sadece INSERT ifadelerini icerir:
+\begin{lstlisting}[language=bash, caption=Data-Only Yedekleme]
+pg_dump -U postgres -d dr_demo_db --data-only -f data_only.sql
+\end{lstlisting}
+Sonuc: \textbf{722 KB}. Mevcut yapiya veri aktarimi icin idealdir.
+
+\subsection{Yedekleme Boyut Karsilastirmasi}
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|r|l|}
+\hline
+\textbf{Yedek Tipi} & \textbf{Boyut} & \textbf{Kullanim Alani} \\
+\hline
+Tam (Full, -F c) & 207 KB & Tum veritabani kurtarma \\
+Sema (Schema-Only) & 4.48 KB & Yapi yeniden olusturma \\
+Tablo Bazli & 208 KB & Tek tablo kurtarma \\
+Sadece Veri (Data-Only) & 722 KB & Veri aktarimi \\
+\hline
+\end{tabular}
+\caption{Yedekleme Tiplerine Gore Boyut Karsilastirmasi}
+\end{table}
+
+\section{Asama 3: Felaket Senaryolari}
+Gercek dunyadaki kazalari simule etmek icin iki felaket senaryosu uygulanmistir.
+
+\subsection{Senaryo 1: Toplu Veri Silme (DELETE)}
+IT departmanindaki 2.000 calisanin yanlislikla silinmesi:
+\begin{lstlisting}[language=SQL, caption=Felaket Senaryosu 1]
+-- !!! 2000 kayit siliniyor !!!
+DELETE FROM company.employees WHERE department = 'IT';
+-- Sonuc: 10.000 -> 8.000 kayit (2.000 kayip)
+\end{lstlisting}
+
+\subsection{Senaryo 2: Tablo Silme (DROP TABLE)}
+Kritik musteri tablosunun tamamen yok edilmesi:
+\begin{lstlisting}[language=SQL, caption=Felaket Senaryosu 2]
+-- !!! Tablo tamamen siliniyor !!!
+DROP TABLE company.customers CASCADE;
+-- Sonuc: Tablo ve 5.000 kayit tamamen kayboldu
+\end{lstlisting}
+
+\section{Asama 4: Yedekten Kurtarma ve Dogrulama}
+
+\subsection{Yedek Dogrulama (Backup Validation)}
+Kurtarma islemine baslamadan once yedegin bozuk olmadigini dogrulamak kritiktir:
+\begin{lstlisting}[language=bash, caption=Yedek Butunluk Testi]
+pg_restore --list full_backup.backup
+-- Sonuc: [BASARILI] 3 tablo verisi tespit edildi
+\end{lstlisting}
+
+\subsection{Tam Kurtarma (Full Restore)}
+Veritabani sifirdan yeniden olusturularak tam yedekten geri yuklendi:
+\begin{lstlisting}[language=bash, caption=Full Restore]
+dropdb -U postgres dr_demo_db
+createdb -U postgres dr_demo_db
+pg_restore -U postgres -d dr_demo_db full_backup.backup
+\end{lstlisting}
+Geri yukleme suresi: \textbf{0.55 saniye}. Tum 3 tablo eksiksiz kurtarildi.
+
+\subsection{Tablo Bazli Kurtarma}
+Sadece \texttt{customers} tablosu kasten silinip, tablo bazli yedekten bagimsiz olarak geri yuklendi:
+\begin{lstlisting}[language=bash, caption=Tablo Bazli Restore]
+pg_restore -U postgres -d dr_demo_db table_company_customers.backup
+-- Sonuc: 5.000 musteri kaydi basariyla kurtarildi
+\end{lstlisting}
+
+\subsection{Kurtarma Sonrasi Dogrulama}
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|r|r|r|}
+\hline
+\textbf{Tablo} & \textbf{Felaket Oncesi} & \textbf{Felaket Sonrasi} & \textbf{Kurtarma Sonrasi} \\
+\hline
+employees & 10.000 & 8.000 & \textbf{10.000} \\
+projects & 500 & 500 & \textbf{500} \\
+customers & 5.000 & YOK (DROP) & \textbf{5.000} \\
+\hline
+\end{tabular}
+\caption{Felaket Oncesi / Sonrasi / Kurtarma Karsilastirmasi}
+\end{table}
+
+\section{Sonuc}
+Bu projede, bir veritabaninin felaketten kurtarma plani basariyla tasarlanmis ve test edilmistir. Dort farkli yedekleme stratejisi (tam, sema, tablo bazli, sadece veri) uygulanmis, gercekci felaket senaryolari simule edilmis ve tum veriler yedeklerden eksiksiz olarak kurtarilmistir. Yedek dosyalarinin butunlugu \texttt{pg\_restore --list} komutu ile dogrulanmistir.
+
+\end{document}

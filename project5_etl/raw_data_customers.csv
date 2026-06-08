@@ -1,0 +1,14 @@
+id,full_name,email,phone,city,registration_date,total_spent
+1,Ahmet Akgun,ahmet@company.com,+90 555 123 4567,Ankara,2024-01-15,1500.50
+2,Ayse Kaya,AYSE.KAYA@COMPANY.COM,05551234568,ankara,2024-02-20,2300.00
+3,,mehmet@company.com,+90 555 999 0000,Istanbul,2024-03-10,750.25
+4,Elif Celik,elif_celik@company,+90 555 111 2222,izmir,15/04/2024,
+5,Mehmet Demir,mehmet.demir@company.com,+90 555 333 4444,Ankara,2024-05-01,3200.00
+6,Zeynep Yildiz,zeynep@company.com,,Bursa,2024-06-12,1800.75
+7,Ali Ozturk,ali@company.com,+90 555 777 8888,ISTANBUL,2024-07-22,NULL
+8,Fatma Sahin,fatma@company.com,+90 555 222 3333,Izmir,2024-08-03,950.00
+9,Ahmet Akgun,ahmet@company.com,+90 555 123 4567,Ankara,2024-01-15,1500.50
+10,Can Polat,can.polat@,+90 555 444 5555,Antalya,2024-09-18,4100.30
+11,Deniz Arslan,deniz@company.com,+90 555 666 7777,ankara,2024/10/25,2200.00
+12,Selin Yilmaz,selin@company.com,05559998877,Trabzon,2024-11-30,-500.00
+13,  Burak Tas  ,burak@company.com,+90 555 888 9999,Konya,2024-12-05,1100.00

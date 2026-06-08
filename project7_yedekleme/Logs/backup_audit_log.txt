@@ -1,2 +1,6 @@
 [2026-04-07 12:47:05] [SUCCESS] DB: yedek_demo_db | ZAMAN: 1.11 sn | BOYUT: 0.06 MB | DOSYA: backup_20260407_124704.backup
 [2026-04-07 12:47:21] [SUCCESS] DB: yedek_demo_db | ZAMAN: 1.04 sn | BOYUT: 0.06 MB | DOSYA: backup_20260407_124720.backup
+[2026-04-24 02:00:10] [SUCCESS] DB: yedek_demo_db | ZAMAN: 1.81 sn | BOYUT: 0.06 MB | DOSYA: backup_20260424_020008.backup
+[2026-05-06 02:00:08] [SUCCESS] DB: yedek_demo_db | ZAMAN: 2.27 sn | BOYUT: 0.06 MB | DOSYA: backup_20260506_020005.backup
+[2026-05-09 02:00:04] [SUCCESS] DB: yedek_demo_db | ZAMAN: 1.13 sn | BOYUT: 0.06 MB | DOSYA: backup_20260509_020003.backup
+[2026-06-06 02:00:08] [SUCCESS] DB: yedek_demo_db | ZAMAN: 2.33 sn | BOYUT: 0.06 MB | DOSYA: backup_20260606_020006.backup

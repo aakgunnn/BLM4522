@@ -1,0 +1,191 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[turkish]{babel}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{enumitem}
+\geometry{a4paper, margin=1in}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false, breaklines=true, captionpos=b,
+    keepspaces=true, numbers=left, numbersep=5pt,
+    showspaces=false, showstringspaces=false, showtabs=false, tabsize=2
+}
+\lstset{style=mystyle}
+
+\begin{document}
+\shorthandoff{=}
+
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    {\Large\textbf{ANKARA UNIVERSITESI}}\\[0.3cm]
+    {\large Muhendislik Fakultesi}\\[0.3cm]
+    {\large Bilgisayar Muhendisligi Bolumu}\\[1cm]
+    \begin{figure}[h]
+    \centering
+    \vspace{3pt}
+    \includegraphics[width=5.0cm]{logo.png}
+    \end{figure}
+    \begin{tabular}{ll}
+        \textbf{Ogrenci:} & Ahmet Akgun \\
+        \textbf{Ogrenci No:} & 22290602 \\
+        \textbf{Danisman:} & Enver Bagci \\
+    \end{tabular}\\[1.5cm]
+    {\Large \textbf{BLM4522 Ag Tabanli Paralel Dagitim Sistemleri}}\\[0.5cm]
+    {\large \textbf{Proje Adi:} Veri Temizleme ve ETL Surecleri Tasarimi}
+    \vfill
+    \begin{itemize}[label=\textbullet]
+        \item \textbf{GitHub Depo Linki:} \url{https://github.com/aakgunnn}
+        \item \textbf{Haftalik Video Takip Baglantisi:} \url{https://www.youtube.com/@ahmetakgun359}
+    \end{itemize}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Giris}
+Bu proje kapsaminda, buyuk veri kumelerinin temizlenmesi ve islenmesi icin bir ETL (Extract, Transform, Load) pipeline'i PostgreSQL uzerinde tamamen SQL tabanli olarak tasarlanmis ve uygulanmistir. Pipeline uc SQL script dosyasindan olusmaktadir:
+
+\begin{enumerate}
+    \item \textbf{stage1\_extract.sql:} Ham CSV dosyalarindan veriyi staging tablolarina yukler.
+    \item \textbf{stage2\_transform.sql:} Veriyi temizler, dogrular, standartlastirir ve hedef tablolara yukler.
+    \item \textbf{stage3\_quality\_report.sql:} Veri kalitesi raporlari olusturur.
+\end{enumerate}
+
+\section{Ham Veri Kaynaklari}
+Projede iki adet ham CSV dosyasi kullanilmistir. Bu dosyalar kasitli olarak cesitli veri kalitesi sorunlari icerecek sekilde tasarlanmistir:
+
+\subsection{Musteri Verisi (raw\_data\_customers.csv)}
+13 satirlik bu dosyada: eksik isim alanlari, tutarsiz email formatlari, farkli telefon ve tarih formatlari, tutarsiz sehir adlari, negatif/NULL tutarlar, duplicate kayitlar ve fazla bosluklar bulunmaktadir.
+
+\subsection{Siparis Verisi (raw\_data\_orders.csv)}
+12 satirlik bu dosyada: negatif/sifir miktar degerleri, sayisal olmayan miktar (\texttt{abc}), eksik fiyat bilgileri, sistemde olmayan musteri ID'leri, tutarsiz siparis durumlari ve tekrarlanan siparisler bulunmaktadir.
+
+\section{Extract (Veri Cikarma) -- stage1\_extract.sql}
+Pipeline'in ilk asamasinda, ham veriler tum sutunlari \texttt{VARCHAR} tipinde tutan \textbf{staging tablolarina} yuklenmistir. Boylece henuz dogrulanmamis verilerin tip hatalari olusturmasi engellenmistir.
+
+\begin{lstlisting}[language=SQL, caption=Staging Tablolari ve Veri Yukleme]
+CREATE TABLE staging_customers (
+    id VARCHAR(10),
+    full_name VARCHAR(200),
+    email VARCHAR(200),
+    phone VARCHAR(50),
+    city VARCHAR(100),
+    registration_date VARCHAR(50),
+    total_spent VARCHAR(50)
+);
+
+\copy staging_customers FROM 'raw_data_customers.csv' WITH (FORMAT csv, HEADER true);
+\end{lstlisting}
+
+\section{Transform (Veri Donusturme) -- stage2\_transform.sql}
+Donusturme asamasi, pipeline'in en kapsamli bolumdur. Tum temizleme ve standartlastirma islemleri tek bir SQL \texttt{INSERT INTO ... SELECT} ifadesi icinde gerceklestirilmistir.
+
+\subsection{Email Dogrulama}
+Regex tabanli email dogrulamasi ile gecersiz formattaki adresler (\texttt{elif\_celik@company}, \texttt{can.polat@}) tespit edilerek ilgili kayitlar atlanmistir:
+\begin{lstlisting}[language=SQL, caption=Regex ile Email Dogrulama]
+WHERE TRIM(email) ~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+\end{lstlisting}
+
+\subsection{Telefon Standardizasyonu}
+Farkli formatlardaki telefon numaralari (\texttt{05551234568} vs \texttt{+90 555 123 4567}) SQL \texttt{CASE} ifadeleri ve \texttt{REGEXP\_REPLACE} fonksiyonu ile tek bir standart formata donusturulmustur:
+\begin{lstlisting}[language=SQL, caption=Telefon Format Donusumu]
+CASE
+  WHEN LENGTH(REGEXP_REPLACE(phone, '\D', '', 'g')) = 11 
+    THEN '+90 ' || SUBSTRING(REGEXP_REPLACE(phone, '\D', '', 'g'), 2, 3)
+         || ' ' || SUBSTRING(..., 5, 3)
+         || ' ' || SUBSTRING(..., 8, 4)
+  ...
+END AS phone
+\end{lstlisting}
+
+\subsection{Tarih ve Sehir Standardizasyonu}
+\texttt{YYYY-MM-DD}, \texttt{DD/MM/YYYY} ve \texttt{YYYY/MM/DD} gibi farkli tarih formatlari regex pattern eslesimiyle otomatik algilanip \texttt{TO\_DATE} fonksiyonu ile ISO 8601 standardina cevrilmistir. Sehir adlari \texttt{INITCAP()} fonksiyonu ile standartlastirilmistir (\texttt{ankara} $\rightarrow$ \texttt{Ankara}).
+
+\subsection{Negatif ve NULL Deger Kontrolu}
+\begin{lstlisting}[language=SQL, caption=Negatif/NULL Tutar Duzeltme]
+GREATEST(
+    COALESCE(
+        CASE 
+            WHEN UPPER(TRIM(total_spent)) = 'NULL' OR TRIM(total_spent) = '' THEN 0
+            ELSE CAST(total_spent AS NUMERIC(12,2))
+        END, 0
+    ), 0
+) AS total_spent
+\end{lstlisting}
+
+\subsection{Duplicate Kontrolu}
+\texttt{DISTINCT ON} ifadesi ile ayni email adresine sahip tekrarlanan kayitlardan sadece ilki alinmistir:
+\begin{lstlisting}[language=SQL, caption=Duplicate Eleme]
+SELECT DISTINCT ON (LOWER(TRIM(email))) *
+FROM staging_customers
+ORDER BY LOWER(TRIM(email)), id::INTEGER
+\end{lstlisting}
+
+\section{Load (Veri Yukleme)}
+Temizlenmis veriler, referans butunlugu (REFERENCES) ve is kurallari (CHECK) kisitlarina sahip hedef tablolara yuklenistir:
+\begin{lstlisting}[language=SQL, caption=Hedef Tablo Semalari]
+CREATE TABLE clean_customers (
+    customer_id SERIAL PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    city VARCHAR(50),
+    registration_date DATE,
+    total_spent NUMERIC(12,2) DEFAULT 0.00
+);
+
+CREATE TABLE clean_orders (
+    order_id INTEGER PRIMARY KEY,
+    customer_id INTEGER REFERENCES clean_customers(customer_id),
+    quantity INTEGER CHECK (quantity > 0),
+    ...
+);
+\end{lstlisting}
+
+\section{Veri Kalitesi Raporu -- stage3\_quality\_report.sql}
+Son asamada, surece dair kapsamli bir denetim raporu SQL sorgulari ile olusturulmustur. Rapor su bilgileri icermektedir:
+
+\begin{itemize}
+    \item Ham vs. temiz kayit sayisi karsilastirmasi
+    \item Atlanan musterilerin detayli listesi (neden + hangi satir)
+    \item Atlanan siparislerin detayli listesi
+    \item Donusturme detaylari (negatif tutar, NULL deger duzeltmeleri)
+    \item Temiz veri dogrulama (tum temiz kayitlarin listesi)
+    \item Sehir bazli musteri dagilimi
+    \item Durum bazli siparis ve ciro istatistikleri
+\end{itemize}
+
+\begin{lstlisting}[caption=Rapor Ciktisi (Ozet)]
+        metrik        | deger
+----------------------+-------
+ Ham Musteri Sayisi   | 13
+ Temiz Musteri Sayisi | 9
+ Ham Siparis Sayisi   | 12
+ Temiz Siparis Sayisi | 6
+
+          metrik          |    deger
+--------------------------+--------------
+ TOPLAM CIRO (Tamamlandi) | 18,000.00 TL
+\end{lstlisting}
+
+\section{Sonuc}
+Bu projede, gercek dunya senaryolarina uygun bir ETL pipeline'i tamamen SQL tabanli olarak tasarlanmis ve PostgreSQL uzerinde basariyla uygulanmistir. Regex (\texttt{\~}), \texttt{CASE}, \texttt{COALESCE}, \texttt{GREATEST}, \texttt{INITCAP}, \texttt{DISTINCT ON}, \texttt{TO\_DATE} ve \texttt{REGEXP\_REPLACE} gibi guclu SQL fonksiyonlari kullanilarak veri temizleme, dogrulama, standartlastirma ve raporlama islemleri gerceklestirilmistir.
+
+\end{document}

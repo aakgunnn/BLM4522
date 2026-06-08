@@ -1,0 +1,85 @@
+============================================================
+  VERİ KALİTESİ RAPORU
+  Tarih: 2026-06-08 18:08:51
+============================================================
+
+============================================================
+[EXTRACT] Dosya okunuyor: raw_data_customers.csv
+============================================================
+  -> Toplam 13 satır okundu.
+
+============================================================
+[EXTRACT] Dosya okunuyor: raw_data_orders.csv
+============================================================
+  -> Toplam 12 satır okundu.
+
+============================================================
+[TRANSFORM] Müşteri verisi dönüştürülüyor...
+============================================================
+  [!] Satir 3: İsim boş -> Satır atlandı.
+  [!] Satir 4: Geçersiz email formatı: 'elif_celik@company' -> Satır atlandı.
+  [~] Satir 7: Boş/NULL tutar -> 0.00 olarak atandı.
+  [!] Satir 9: Tekrarlanan kayıt (email: ahmet@company.com) -> Atlandı.
+  [!] Satir 10: Geçersiz email formatı: 'can.polat@' -> Satır atlandı.
+  [!] Satir 12: Negatif tutar (-500.0) -> 0.00 olarak düzeltildi.
+
+  --- MÜŞTERİ VERİ KALİTESİ ÖZETİ ---
+  Ham veri satır sayısı  : 13
+  Temiz veri satır sayısı: 9
+  Eksik isim (atlandı)   : 1
+  Geçersiz email (atlandı): 2
+  Tekrarlanan kayıt       : 1
+  Geçersiz telefon        : 0
+  Geçersiz tarih          : 0
+  Negatif tutar düzeltme  : 1
+  NULL tutar düzeltme     : 1
+  Boşluk temizleme        : 0
+
+============================================================
+[TRANSFORM] Sipariş verisi dönüştürülüyor...
+============================================================
+  [!] Sipariş 102: Geçersiz miktar (-2) -> Atlandı.
+  [!] Sipariş 103: Geçersiz müşteri ID (3) -> Atlandı.
+  [!] Sipariş 106: Geçersiz müşteri ID (99) -> Atlandı.
+  [!] Sipariş 107: Geçersiz müşteri ID (4) -> Atlandı.
+  [~] Sipariş 109: Fiyat bilgisi eksik -> 0.00 atandı.
+  [!] Sipariş 110: Tekrarlanan sipariş -> Atlandı.
+  [!] Sipariş 112: Sayısal olmayan miktar ('abc') -> Atlandı.
+
+  --- SİPARİŞ VERİ KALİTESİ ÖZETİ ---
+  Ham veri satır sayısı  : 12
+  Temiz veri satır sayısı: 6
+  Geçersiz müşteri ID    : 3
+  Geçersiz miktar         : 2
+  Eksik fiyat             : 1
+  Geçersiz tarih          : 0
+  Tekrarlanan sipariş     : 1
+  Durum standartlaştırma  : 5
+
+============================================================
+[LOAD] Hedef tablolar oluşturuluyor...
+============================================================
+  -> Tablolar başarıyla oluşturuldu / temizlendi.
+  -> 9/9 müşteri kaydı yüklendi.
+  -> 6/6 sipariş kaydı yüklendi.
+
+============================================================
+[DOĞRULAMA] Yüklenen veriler kontrol ediliyor...
+============================================================
+
+  Toplam müşteri : 9
+  Toplam sipariş : 6
+  Toplam ciro (Tamamlandı): 18,000.00 TL
+
+  Şehir Dağılımı:
+    Ankara: 4 müşteri
+    Konya: 1 müşteri
+    Izmir: 1 müşteri
+    Trabzon: 1 müşteri
+    Istanbul: 1 müşteri
+    Bursa: 1 müşteri
+
+============================================================
+[TAMAMLANDI] ETL Pipeline başarıyla tamamlandı!
+Rapor dosyası: C:\Users\90506\OneDrive\Masaüstü\database_projects\project5_etl\veri_kalitesi_raporu.txt
+============================================================
